@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎶 악기 - 이름 - 소리 연결하기 게임</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Jua, Nanum Gothic) -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Jua', 'Nanum Gothic', sans-serif;
+            background: linear-gradient(135deg, #fef9c3 0%, #e0f2fe 50%, #fbcfe8 100%);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* SVG 연결선 오버레이 - 항상 카드 및 배경 위에 선명히 위치 */
+        #svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .card-node {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+            z-index: 20;
+        }
+
+        .card-node:hover {
+            transform: translateY(-3px) scale(1.03);
+        }
+
+        .card-node:active {
+            transform: scale(0.97);
+        }
+
+        .card-node.selected {
+            border-color: #2563eb !important;
+            background-color: #eff6ff !important;
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px -3px rgba(37, 99, 235, 0.45);
+            animation: pulse-border 1.5s infinite;
+        }
+
+        .card-node.matched {
+            opacity: 0.9;
+            pointer-events: none;
+            transform: scale(0.98);
+            filter: saturate(1.1);
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+            50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-3 md:p-6 relative overflow-x-hidden">
+
+    <!-- Canvas for SVG Connection Lines -->
+    <svg id="svg-canvas"></svg>
+
+    <!-- Header Section -->
+    <header class="w-full max-w-4xl text-center mb-2 md:mb-4 z-20">
+        <!-- Title Banner -->
+        <div class="bg-amber-100/90 border-4 border-amber-300 rounded-3xl p-3 shadow-md mb-2 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="text-3xl md:text-4xl animate-bounce">🎶</span>
+                <h1 class="text-xl md:text-2xl font-extrabold text-amber-900 tracking-wide text-left">
+                    악기 - 이름 - 소리 연결하기 게임
+                </h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="sound-toggle-btn" class="bg-white hover:bg-slate-50 border-2 border-amber-300 text-amber-900 px-3 py-1.5 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95">
+                    <i class="fas fa-volume-up text-blue-500 text-sm" id="sound-icon"></i> <span id="sound-text">소리 ON</span>
+                </button>
+                <button onclick="resetGame()" class="bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white border-b-4 border-amber-600 px-3.5 py-1.5 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-1.5 shadow-md hover:shadow-lg transition active:translate-y-0.5">
+                    <i class="fas fa-rotate-right"></i> 다시 하기
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm inline-block">
+            <p class="text-slate-700 text-xs md:text-sm font-bold flex items-center justify-center gap-1.5">
+                <span>💡</span>
+                <span>[악기 사진]을 누르면 예쁜 소리가 나요! 같은 악기의 [사진 - 이름 - 소리]를 터치해서 연결하세요!</span>
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Game Area: Equal 3-Column Layout with Enhanced Horizontal Spacing -->
+    <main class="w-full max-w-4xl my-auto z-20 flex flex-col gap-2 md:gap-4 px-2 md:px-6">
+        
+        <!-- Top Horizontal Column Headers -->
+        <div class="grid grid-cols-3 gap-6 md:gap-14 w-full">
+            <div class="text-center font-extrabold text-blue-800 text-xs md:text-lg bg-blue-100/90 py-2 rounded-2xl border-2 border-blue-300 shadow-sm flex items-center justify-center gap-1">
+                <span>🎨</span> <span>악기 사진</span>
+            </div>
+            <div class="text-center font-extrabold text-purple-800 text-xs md:text-lg bg-purple-100/90 py-2 rounded-2xl border-2 border-purple-300 shadow-sm flex items-center justify-center gap-1">
+                <span>🏷️</span> <span>악기 이름</span>
+            </div>
+            <div class="text-center font-extrabold text-emerald-800 text-xs md:text-lg bg-emerald-100/90 py-2 rounded-2xl border-2 border-emerald-300 shadow-sm flex items-center justify-center gap-1">
+                <span>🔔</span> <span>악기 소리</span>
+            </div>
+        </div>
+
+        <!-- Matching Cards Area (3 Columns with Ample Inter-Column Space for Lines) -->
+        <div class="grid grid-cols-3 gap-6 md:gap-14 w-full items-stretch">
+            
+            <!-- Column 1: Images -->
+            <div class="flex flex-col gap-2.5 md:gap-3.5 justify-between items-center" id="col-images">
+                <!-- Dynamically Populated -->
+            </div>
+
+            <!-- Column 2: Names -->
+            <div class="flex flex-col gap-2.5 md:gap-3.5 justify-between items-center" id="col-names">
+                <!-- Dynamically Populated -->
+            </div>
+
+            <!-- Column 3: Sounds -->
+            <div class="flex flex-col gap-2.5 md:gap-3.5 justify-between items-center" id="col-sounds">
+                <!-- Dynamically Populated -->
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Bottom Progress Bar -->
+    <footer class="w-full max-w-4xl text-center mt-3 md:mt-5 z-20">
+        <div id="progress-bar-container" class="bg-white/90 backdrop-blur-md p-2.5 rounded-2xl shadow-md border-2 border-amber-200 flex items-center justify-between gap-3">
+            <div class="text-slate-700 font-bold text-xs md:text-base flex items-center gap-1.5 whitespace-nowrap">
+                <span>🎯 맞춘 개수:</span>
+                <span id="score-text" class="text-blue-600 font-extrabold text-base md:text-xl">0 / 4</span>
+            </div>
+            <div class="flex-1 bg-slate-100 h-4 md:h-5 rounded-full overflow-hidden border border-slate-200 shadow-inner">
+                <div id="progress-bar" class="bg-gradient-to-r from-amber-400 via-emerald-400 to-blue-500 h-full w-0 transition-all duration-500 rounded-full"></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Completion Modal Overlay -->
+    <div id="success-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-11/12 text-center shadow-2xl border-4 border-amber-300 transform scale-90 transition-transform duration-300 relative overflow-hidden" id="modal-content">
+            <div class="text-5xl mb-2 animate-bounce">🎉</div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-amber-600 mb-1">참 잘했어요!</h2>
+            <p class="text-slate-600 text-sm md:text-base mb-4 font-bold">모든 악기와 소리를 완벽하게 연결했어요!</p>
+            
+            <div class="grid grid-cols-2 gap-2 bg-amber-50 p-2.5 rounded-2xl border border-amber-200 mb-5 text-sm">
+                <div class="text-amber-900 font-bold bg-white p-2 rounded-xl shadow-sm">🎹 피아노</div>
+                <div class="text-amber-900 font-bold bg-white p-2 rounded-xl shadow-sm">🥁 탬버린</div>
+                <div class="text-amber-900 font-bold bg-white p-2 rounded-xl shadow-sm">🥁 작은북</div>
+                <div class="text-amber-900 font-bold bg-white p-2 rounded-xl shadow-sm">📐 트라이앵글</div>
+            </div>
+
+            <button onclick="resetGame(); closeModal();" class="w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-extrabold py-3 rounded-2xl text-lg shadow-lg border-b-4 border-teal-700 active:translate-y-0.5 transition">
+                <i class="fas fa-play mr-1.5"></i> 한 번 더 하기!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Instrument Data with Crisp High-Visual SVG Icons
+        const INSTRUMENTS = [
+            {
+                id: 'piano',
+                name: '피아노',
+                soundText: '딩동댕~ 딩동댕~~~',
+                color: '#2563eb', // Rich Blue
+                bgLight: 'bg-blue-50 border-blue-300 text-blue-900',
+                svg: `
+                <svg viewBox="0 0 100 80" class="w-10 h-10 md:w-14 md:h-14 drop-shadow-sm">
+                    <rect x="5" y="15" width="90" height="55" rx="8" fill="#1e293b" />
+                    <rect x="10" y="20" width="80" height="18" rx="4" fill="#334155" />
+                    <rect x="40" y="23" width="20" height="10" fill="#0284c7" rx="2"/>
+                    <g fill="#ffffff" stroke="#cbd5e1" stroke-width="1">
+                        <rect x="10" y="42" width="10" height="23" rx="1"/>
+                        <rect x="20" y="42" width="10" height="23" rx="1"/>
+                        <rect x="30" y="42" width="10" height="23" rx="1"/>
+                        <rect x="40" y="42" width="10" height="23" rx="1"/>
+                        <rect x="50" y="42" width="10" height="23" rx="1"/>
+                        <rect x="60" y="42" width="10" height="23" rx="1"/>
+                        <rect x="70" y="42" width="10" height="23" rx="1"/>
+                        <rect x="80" y="42" width="10" height="23" rx="1"/>
+                    </g>
+                    <g fill="#0f172a">
+                        <rect x="17" y="42" width="6" height="13" rx="1"/>
+                        <rect x="27" y="42" width="6" height="13" rx="1"/>
+                        <rect x="47" y="42" width="6" height="13" rx="1"/>
+                        <rect x="57" y="42" width="6" height="13" rx="1"/>
+                        <rect x="67" y="42" width="6" height="13" rx="1"/>
+                    </g>
+                </svg>`
+            },
+            {
+                id: 'tambourine',
+                name: '탬버린',
+                soundText: '찰찰찰~ 찰찰찰~~~',
+                color: '#d97706', // Warm Amber
+                bgLight: 'bg-amber-50 border-amber-300 text-amber-900',
+                svg: `
+                <svg viewBox="0 0 100 80" class="w-10 h-10 md:w-14 md:h-14 drop-shadow-sm">
+                    <circle cx="50" cy="40" r="32" fill="#f8fafc" stroke="#d97706" stroke-width="7" />
+                    <circle cx="50" cy="40" r="27" fill="#fef3c7" />
+                    <circle cx="50" cy="8" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="50" cy="72" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="18" cy="40" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="82" cy="40" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="27" cy="17" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="73" cy="17" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="27" cy="63" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                    <circle cx="73" cy="63" r="5" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                </svg>`
+            },
+            {
+                id: 'snaredrum',
+                name: '작은북',
+                soundText: '동동동~ 동동동~~~',
+                color: '#dc2626', // Bright Red
+                bgLight: 'bg-rose-50 border-rose-300 text-rose-900',
+                svg: `
+                <svg viewBox="0 0 100 80" class="w-10 h-10 md:w-14 md:h-14 drop-shadow-sm">
+                    <ellipse cx="50" cy="54" rx="34" ry="16" fill="#94a3b8" />
+                    <path d="M 16 34 L 16 54 A 34 16 0 0 0 84 54 L 84 34 Z" fill="#cbd5e1" stroke="#64748b" stroke-width="2"/>
+                    <ellipse cx="50" cy="34" rx="34" ry="16" fill="#f8fafc" stroke="#64748b" stroke-width="3"/>
+                    <ellipse cx="50" cy="34" rx="30" ry="13" fill="#f1f5f9" />
+                    <line x1="20" y1="15" x2="46" y2="32" stroke="#b45309" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="46" cy="32" r="3.5" fill="#d97706"/>
+                    <line x1="80" y1="15" x2="54" y2="32" stroke="#b45309" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="54" cy="32" r="3.5" fill="#d97706"/>
+                </svg>`
+            },
+            {
+                id: 'triangle',
+                name: '트라이앵글',
+                soundText: '칭칭칭~ 칭칭칭~~~',
+                color: '#059669', // Emerald Green
+                bgLight: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+                svg: `
+                <svg viewBox="0 0 100 80" class="w-10 h-10 md:w-14 md:h-14 drop-shadow-sm">
+                    <line x1="50" y1="8" x2="50" y2="22" stroke="#f59e0b" stroke-width="3" />
+                    <path d="M 50 22 L 80 68 L 24 68" fill="none" stroke="#64748b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M 50 22 L 80 68 L 24 68" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="72" y1="28" x2="52" y2="50" stroke="#475569" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="52" cy="50" r="4" fill="#94a3b8"/>
+                </svg>`
+            }
+        ];
+
+        // Global State Variables
+        let selectedImg = null;
+        let selectedName = null;
+        let selectedSound = null;
+        let matchedTriplets = [];
+        let isSoundEnabled = true;
+
+        // Web Audio Context Synthesizer
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Web Audio Synthesizer for Instrument Sounds
+        function playSynthesizedSound(type) {
+            if (!isSoundEnabled) return;
+            initAudio();
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'piano') {
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.35, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 1.2);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 1.2);
+                });
+
+            } else if (type === 'tambourine') {
+                for (let j = 0; j < 3; j++) {
+                    const burstTime = now + j * 0.1;
+                    const bufferSize = audioCtx.sampleRate * 0.08;
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.value = 6000;
+
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0.3, burstTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, burstTime + 0.08);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    noise.start(burstTime);
+                }
+
+            } else if (type === 'snaredrum') {
+                for (let k = 0; k < 3; k++) {
+                    const hitTime = now + k * 0.12;
+                    
+                    const osc = audioCtx.createOscillator();
+                    const oscGain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(180, hitTime);
+                    osc.frequency.exponentialRampToValueAtTime(45, hitTime + 0.09);
+
+                    oscGain.gain.setValueAtTime(0.45, hitTime);
+                    oscGain.gain.exponentialRampToValueAtTime(0.01, hitTime + 0.09);
+
+                    osc.connect(oscGain);
+                    oscGain.connect(audioCtx.destination);
+                    osc.start(hitTime);
+                    osc.stop(hitTime + 0.09);
+
+                    const bufferSize = audioCtx.sampleRate * 0.09;
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.value = 1000;
+
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0.25, hitTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, hitTime + 0.09);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    noise.start(hitTime);
+                }
+
+            } else if (type === 'triangle') {
+                const freqs = [1760, 2793, 3720];
+                freqs.forEach(freq => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 1.8);
+                });
+
+            } else if (type === 'correct') {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.2, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.4);
+                });
+
+            } else if (type === 'wrong') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.linearRampToValueAtTime(90, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        // Text-to-Speech (TTS)
+        function speakText(text) {
+            if (!isSoundEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 0.95;
+            utterance.pitch = 1.15;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Shuffle Array
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // Render Game with Unified Text Sizes
+        function initGame() {
+            matchedTriplets = [];
+            selectedImg = null;
+            selectedName = null;
+            selectedSound = null;
+            clearLines();
+            updateProgressBar();
+
+            const colImages = document.getElementById('col-images');
+            const colNames = document.getElementById('col-names');
+            const colSounds = document.getElementById('col-sounds');
+
+            colImages.innerHTML = '';
+            colNames.innerHTML = '';
+            colSounds.innerHTML = '';
+
+            const shuffledImages = shuffle(INSTRUMENTS);
+            const shuffledNames = shuffle(INSTRUMENTS);
+            const shuffledSounds = shuffle(INSTRUMENTS);
+
+            // Render Column 1: Images
+            shuffledImages.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `card-node w-full ${item.bgLight} border-2 rounded-2xl p-2 flex flex-col items-center justify-center shadow-sm hover:shadow-md h-20 md:h-24 relative`;
+                card.dataset.id = item.id;
+                card.dataset.type = 'img';
+                card.innerHTML = `
+                    ${item.svg}
+                    <span class="text-[9px] md:text-[11px] font-extrabold text-slate-500 mt-0.5 bg-white/90 px-1.5 py-0.2 rounded-full border border-slate-200">🔊 눌러봐요</span>
+                `;
+                card.addEventListener('click', () => handleNodeClick(card, 'img', item));
+                colImages.appendChild(card);
+            });
+
+            // Render Column 2: Names (Font Size: text-base md:text-xl)
+            shuffledNames.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `card-node w-full bg-white border-2 border-purple-200 text-slate-800 rounded-2xl p-2 text-center font-extrabold text-base md:text-xl shadow-sm hover:shadow-md flex items-center justify-center h-20 md:h-24`;
+                card.dataset.id = item.id;
+                card.dataset.type = 'name';
+                card.innerHTML = `<span>${item.name}</span>`;
+                card.addEventListener('click', () => handleNodeClick(card, 'name', item));
+                colNames.appendChild(card);
+            });
+
+            // Render Column 3: Sound Texts (EXACT EQUAL Font Size: text-base md:text-xl)
+            shuffledSounds.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `card-node w-full bg-white border-2 border-emerald-200 text-slate-800 rounded-2xl p-2 text-center font-extrabold text-base md:text-xl shadow-sm hover:shadow-md flex items-center justify-center h-20 md:h-24`;
+                card.dataset.id = item.id;
+                card.dataset.type = 'sound';
+                card.innerHTML = `<span class="text-emerald-800 font-extrabold leading-tight">${item.soundText}</span>`;
+                card.addEventListener('click', () => handleNodeClick(card, 'sound', item));
+                colSounds.appendChild(card);
+            });
+
+            window.addEventListener('resize', redrawLines);
+            setTimeout(redrawLines, 100);
+        }
+
+        // Handle Card Selection
+        function handleNodeClick(cardElement, type, item) {
+            initAudio();
+
+            if (cardElement.classList.contains('matched')) return;
+
+            if (type === 'img') {
+                if (selectedImg === cardElement) {
+                    selectedImg.classList.remove('selected');
+                    selectedImg = null;
+                } else {
+                    if (selectedImg) selectedImg.classList.remove('selected');
+                    selectedImg = cardElement;
+                    selectedImg.classList.add('selected');
+                    
+                    // Audio Playback
+                    playSynthesizedSound(item.id);
+                    speakText(item.name);
+                }
+            } else if (type === 'name') {
+                if (selectedName === cardElement) {
+                    selectedName.classList.remove('selected');
+                    selectedName = null;
+                } else {
+                    if (selectedName) selectedName.classList.remove('selected');
+                    selectedName = cardElement;
+                    selectedName.classList.add('selected');
+                    
+                    speakText(item.name);
+                }
+            } else if (type === 'sound') {
+                if (selectedSound === cardElement) {
+                    selectedSound.classList.remove('selected');
+                    selectedSound = null;
+                } else {
+                    if (selectedSound) selectedSound.classList.remove('selected');
+                    selectedSound = cardElement;
+                    selectedSound.classList.add('selected');
+
+                    playSynthesizedSound(item.id);
+                    speakText(item.soundText.replace(/~/g, ''));
+                }
+            }
+
+            checkMatch();
+        }
+
+        // Match Check logic
+        function checkMatch() {
+            if (selectedImg && selectedName && !selectedSound) {
+                if (selectedImg.dataset.id !== selectedName.dataset.id) {
+                    triggerMismatch(selectedImg, selectedName);
+                    return;
+                }
+            }
+
+            if (selectedName && selectedSound && !selectedImg) {
+                if (selectedName.dataset.id !== selectedSound.dataset.id) {
+                    triggerMismatch(selectedName, selectedSound);
+                    return;
+                }
+            }
+
+            if (selectedImg && selectedSound && !selectedName) {
+                if (selectedImg.dataset.id !== selectedSound.dataset.id) {
+                    triggerMismatch(selectedImg, selectedSound);
+                    return;
+                }
+            }
+
+            if (selectedImg && selectedName && selectedSound) {
+                const imgId = selectedImg.dataset.id;
+                const nameId = selectedName.dataset.id;
+                const soundId = selectedSound.dataset.id;
+
+                if (imgId === nameId && nameId === soundId) {
+                    const instData = INSTRUMENTS.find(i => i.id === imgId);
+                    
+                    selectedImg.classList.remove('selected');
+                    selectedName.classList.remove('selected');
+                    selectedSound.classList.remove('selected');
+
+                    selectedImg.classList.add('matched');
+                    selectedName.classList.add('matched');
+                    selectedSound.classList.add('matched');
+
+                    matchedTriplets.push({
+                        imgEl: selectedImg,
+                        nameEl: selectedName,
+                        soundEl: selectedSound,
+                        color: instData.color
+                    });
+
+                    playSynthesizedSound('correct');
+                    speakText(`${instData.name} 정답!`);
+
+                    redrawLines();
+                    updateProgressBar();
+
+                    selectedImg = null;
+                    selectedName = null;
+                    selectedSound = null;
+
+                    if (matchedTriplets.length === INSTRUMENTS.length) {
+                        setTimeout(showSuccessModal, 600);
+                    }
+
+                } else {
+                    triggerMismatch(selectedImg, selectedName, selectedSound);
+                }
+            }
+        }
+
+        function triggerMismatch(...elements) {
+            playSynthesizedSound('wrong');
+            elements.forEach(el => {
+                if (el) {
+                    el.classList.add('border-red-500', 'bg-red-50', 'animate-bounce');
+                    setTimeout(() => {
+                        el.classList.remove('selected', 'border-red-500', 'bg-red-50', 'animate-bounce');
+                    }, 500);
+                }
+            });
+
+            selectedImg = null;
+            selectedName = null;
+            selectedSound = null;
+        }
+
+        // Draw Thick & Clear Connecting Lines
+        function redrawLines() {
+            const svg = document.getElementById('svg-canvas');
+            svg.innerHTML = '';
+
+            const svgRect = svg.getBoundingClientRect();
+
+            matchedTriplets.forEach(triplet => {
+                const p1 = getCenterRight(triplet.imgEl, svgRect);
+                const p2 = getCenterLeft(triplet.nameEl, svgRect);
+                drawLine(svg, p1, p2, triplet.color);
+
+                const p3 = getCenterRight(triplet.nameEl, svgRect);
+                const p4 = getCenterLeft(triplet.soundEl, svgRect);
+                drawLine(svg, p3, p4, triplet.color);
+            });
+        }
+
+        function clearLines() {
+            const svg = document.getElementById('svg-canvas');
+            svg.innerHTML = '';
+        }
+
+        function drawLine(svg, p1, p2, color) {
+            // Shadow Line for depth
+            const shadowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            shadowLine.setAttribute('x1', p1.x);
+            shadowLine.setAttribute('y1', p1.y + 2);
+            shadowLine.setAttribute('x2', p2.x);
+            shadowLine.setAttribute('y2', p2.y + 2);
+            shadowLine.setAttribute('stroke', 'rgba(0,0,0,0.15)');
+            shadowLine.setAttribute('stroke-width', '7');
+            shadowLine.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(shadowLine);
+
+            // Main Thick Colored Line
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', p1.x);
+            line.setAttribute('y1', p1.y);
+            line.setAttribute('x2', p2.x);
+            line.setAttribute('y2', p2.y);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', '6');
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('stroke-dasharray', '10 6');
+            svg.appendChild(line);
+
+            // Node Circle 1
+            const c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            c1.setAttribute('cx', p1.x);
+            c1.setAttribute('cy', p1.y);
+            c1.setAttribute('r', '7');
+            c1.setAttribute('fill', color);
+            c1.setAttribute('stroke', '#ffffff');
+            c1.setAttribute('stroke-width', '2');
+            svg.appendChild(c1);
+
+            // Node Circle 2
+            const c2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            c2.setAttribute('cx', p2.x);
+            c2.setAttribute('cy', p2.y);
+            c2.setAttribute('r', '7');
+            c2.setAttribute('fill', color);
+            c2.setAttribute('stroke', '#ffffff');
+            c2.setAttribute('stroke-width', '2');
+            svg.appendChild(c2);
+        }
+
+        function getCenterRight(el, parentRect) {
+            const r = el.getBoundingClientRect();
+            return {
+                x: r.right - parentRect.left,
+                y: r.top + r.height / 2 - parentRect.top
+            };
+        }
+
+        function getCenterLeft(el, parentRect) {
+            const r = el.getBoundingClientRect();
+            return {
+                x: r.left - parentRect.left,
+                y: r.top + r.height / 2 - parentRect.top
+            };
+        }
+
+        // Progress Bar
+        function updateProgressBar() {
+            const scoreText = document.getElementById('score-text');
+            const progressBar = document.getElementById('progress-bar');
+            const count = matchedTriplets.length;
+
+            scoreText.textContent = `${count} / ${INSTRUMENTS.length}`;
+            progressBar.style.width = `${(count / INSTRUMENTS.length) * 100}%`;
+        }
+
+        // Success Modal
+        function showSuccessModal() {
+            confetti({
+                particleCount: 160,
+                spread: 100,
+                origin: { y: 0.6 }
+            });
+
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-90');
+            }, 50);
+
+            speakText("축하합니다! 모든 악기 연결을 완성했어요!");
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Audio Mute Toggle
+        document.getElementById('sound-toggle-btn').addEventListener('click', () => {
+            isSoundEnabled = !isSoundEnabled;
+            const icon = document.getElementById('sound-icon');
+            const text = document.getElementById('sound-text');
+
+            if (isSoundEnabled) {
+                icon.className = 'fas fa-volume-up text-blue-500 text-sm';
+                text.textContent = '소리 ON';
+                speakText("소리가 켜졌습니다.");
+            } else {
+                icon.className = 'fas fa-volume-mute text-slate-400 text-sm';
+                text.textContent = '소리 OFF';
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            }
+        });
+
+        window.onload = () => {
+            initGame();
+        };
+    </script>
+</body>
+</html>
